@@ -66,8 +66,8 @@ class GoogleRequestHelper:
     def get(self, url, params: dict = None):
         return self._execute_request("GET", url, params=params)
 
-    def post(self, url, data):
-        return self._execute_request("POST", url, data)
+    def post(self, url, data, params: dict[str, str] = None):
+        return self._execute_request("POST", url, data, params)
 
     def delete(self, url, params: dict = None):
         return self._execute_request("DELETE", url, params=params)
