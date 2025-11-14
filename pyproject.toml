@@ -1,0 +1,14 @@
+[project]
+name = "ca-utils"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cyclopts>=4.2.3",
+    "google-auth>=2.43.0",
+    "google-cloud-bigquery>=3.38.0",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "ruff>=0.14.5",
+]
