@@ -1,36 +1,86 @@
+import json
+from pathlib import Path
+
+import yaml
 from cyclopts import App
 from requests.exceptions import HTTPError
+from rich import box
 from rich import print as rprint
-import json
-import yaml
-from .helpers import GeminiDataAnalyticsRequestHelper
 from rich.console import Console
 from rich.table import Table
-from rich import box
+
+from . import llm_adk
+from .helpers import GeminiDataAnalyticsRequestHelper
+
+import asyncio
 
 app = App("data-agent")
 
 
 @app.command
-def create(
-    project_id: str, location: str, name: str, display_name: str, definitions_dir: str
+def autogen(
+    project_id: str,
+    location: str,
+    base_dir: str,
+    ca_agent_id: str,
+    gen_datasource_references: bool = True,
+    gen_schema_relationships: bool = True
+):
+    """Auto generates data agent files based on specification"""
+    try:
+        path_name = f"{base_dir}/{ca_agent_id}"
+        with open(f"{path_name}/autogen.yaml", "r") as file:
+            autogen = yaml.safe_load(file)
+        #print(autogen)
+        rprint("[green]Autogen using LLM starting[/green]")
+        if gen_schema_relationships:
+            llm_adk.autogen_schema_relationships(autogen["bqDataSources"], 
+                                        f"{path_name}/schemaRelationships.yaml")
+            rprint("[green]Inferred schema relationships written[/green]")
+        if gen_datasource_references:
+            llm_adk.autogen_ds_references(autogen["bqDataSources"], 
+                                        f"{path_name}/datasourceReferences.yaml")
+            rprint("[green]Table fields and inferred descriptions written[/green]")
+        rprint("[green]Autogen finished[/green]")
+    except OSError as e:
+        rprint(f"[bright_red]{e}[/bright_red]")
+
+
+@app.command
+def upload(
+    project_id: str,
+    location: str,
+    base_dir: str,
+    ca_agent_id: str,
+    patch: bool = False,
 ):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
-    with open(f"{definitions_dir}/dataSourceReferences.yaml", "r") as file:
-        dataSourceReferences = yaml.safe_load(file)
+    path_name = f"{base_dir}/{ca_agent_id}"
+    with open(f"{path_name}/systemInstruction.txt", "r") as file:
+        systemInstruction = file.read()
+    with open(f"{path_name}/datasourceReferences.yaml", "r") as file:
+        datasourceReferences = yaml.safe_load(file)
+    with open(f"{path_name}/schemaRelationships.yaml", "r") as file:
+        schemaRelationships = yaml.safe_load(file)
+
     payload = {
-        "displayName": display_name,
+        # "displayName": display_name,
         "dataAnalyticsAgent": {
             "publishedContext": {
-                # "systemInstruction": string,
-                "datasourceReferences": {"bq": dataSourceReferences}
+                "systemInstruction": systemInstruction,
+                "datasourceReferences": datasourceReferences,
+                "schemaRelationships": schemaRelationships,
             }
         },
     }
-    params = {"dataAgentId": name}
-    print(json.dumps(payload, indent=2))
+    #print(json.dumps(payload, indent=2))
     try:
-        response = helper.post("dataAgents", payload, params)
+        if patch:
+            params = {"updateMask": "dataAnalyticsAgent.publishedContext"}
+            response = helper.patch(f"dataAgents/{ca_agent_id}", payload, params)
+        else:
+            params = {"dataAgentId": ca_agent_id}
+            response = helper.post("dataAgents", payload, params)
 
         name_parts = response["name"].split("/")
         project_number = name_parts[1]
@@ -84,9 +134,48 @@ def list(project_id: str, location: str):
     params = {"pageSize": 10}
     try:
         print_list(helper.get("dataAgents", params))
-        # print(json.dumps(response, indent=2))
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
+
+
+@app.command
+def download(
+    project_id: str,
+    location: str,
+    base_dir: str,
+    ca_agent_id: str,
+    overwrite_ok: bool = False,
+):
+    helper = GeminiDataAnalyticsRequestHelper(project_id, location)
+    try:
+        response = helper.get(f"dataAgents/{ca_agent_id}")
+        # print(json.dumps(response, indent=2))
+        path_name = f"{base_dir}/{ca_agent_id}"
+        Path(path_name).mkdir(exist_ok=overwrite_ok)
+        with open(f"{path_name}/systemInstruction.txt", "w") as file:
+            file.write(
+                response["dataAnalyticsAgent"]["publishedContext"]["systemInstruction"]
+            )
+        with open(f"{path_name}/datasourceReferences.yaml", "w") as file:
+            yaml.dump(
+                response["dataAnalyticsAgent"]["publishedContext"][
+                    "datasourceReferences"
+                ],
+                file,
+            )
+        with open(f"{path_name}/schemaRelationships.yaml", "w") as file:
+            yaml.dump(
+                response["dataAnalyticsAgent"]["publishedContext"][
+                    "schemaRelationships"
+                ],
+                file,
+            )
+
+        rprint(f"[green]Data Agent downloaded to {path_name}[/green]")
+    except HTTPError as e:
+        rprint(f"[bright_red]{e.response.text}[/bright_red]")
+    except FileExistsError as e:
+        rprint(f"[bright_red]{e}[/bright_red]")
 
 
 @app.command
@@ -103,4 +192,3 @@ def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
 
-# TO-DO: export command

@@ -72,5 +72,5 @@ class GoogleRequestHelper:
     def delete(self, url, params: dict = None):
         return self._execute_request("DELETE", url, params=params)
 
-    def patch(self, url, data):
-        return self._execute_request("PATCH", url, data)
+    def patch(self, url, data, params: dict[str, str] = None):
+        return self._execute_request("PATCH", url, data, params)

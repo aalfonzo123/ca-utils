@@ -68,6 +68,24 @@ def get_tables(project_id: str, dataset_id: str):
     return tables
 
 
+def get_table_ids_in_dataset(project_id: str, dataset_id: str) -> list[str]:
+    """List table ids in a BigQuery dataset.
+
+    Args:
+        project_id (str): The Google Cloud project id containing the dataset.
+        dataset_id (str): The BigQuery dataset id.
+        credentials (Credentials): The credentials to use for the request.
+
+    Returns:
+        list[str]: List of the tables ids present in the dataset."""
+
+    client = bigquery.Client(project=project_id)
+    table_refs = client.list_tables(bigquery.DatasetReference(project_id, dataset_id))
+    table_ids = []
+    for t_ref in table_refs:
+        table_ids.append(t_ref.table_id)
+    return table_ids
+
 def get_table_info_direct(project_id: str, table_reference):
     client = bigquery.Client(project=project_id)
     return client.get_table(table_reference)
@@ -137,6 +155,9 @@ def get_sample_rows_json(project_id: str, dataset_id: str, table_id: str) -> str
         full_rows.append(one_row)
     return json.dumps(full_rows)
 
+def split_using_dots(input: str) -> list[str]:
+    """splits a string having dots into individual strings"""
+    return input.split('.')
 
 if __name__ == "__main__":
     PROJECT = "as-alf-argolis"
