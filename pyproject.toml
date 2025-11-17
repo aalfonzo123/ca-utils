@@ -15,3 +15,9 @@ dependencies = [
     "ruff>=0.14.5",
     "toolbox-core>=0.5.2",
 ]
+
+[tool.setuptools]
+packages = ["cautils"]
+
+[project.scripts]
+ca-utils = "cautils:main.app"

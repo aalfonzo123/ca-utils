@@ -40,7 +40,10 @@ def replace_fields_recursively(data):
 
     return new_data
 
-
+# Note: this is not being used, it was replaced by
+# data_agent.autogen
+# This one is 100% deterministic and runs almost immediately,
+# unlike the LLM based autogen.
 @app.command
 def export(project_id: str, dataset_id: str):
     tables = metadata_tool.get_tables(project_id=project_id, dataset_id=dataset_id)
