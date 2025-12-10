@@ -13,16 +13,12 @@ from . import metadata_tool as mt
 from google.genai.types import (
     Content,
     GenerateContentConfig,
-    ToolConfig,
     Part,
 )
 
 from google import genai
 
-# from . import llm_adk
 from .helpers import GeminiDataAnalyticsRequestHelper
-
-import asyncio
 
 app = App("data-agent")
 
@@ -248,7 +244,7 @@ def delete_conversation(project_id: str, location: str, conversation_id: str):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     try:
         helper.delete(f"conversations/{conversation_id}")
-        rprint(f"[green]Conversation deleted[/green]")
+        rprint("[green]Conversation deleted[/green]")
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
