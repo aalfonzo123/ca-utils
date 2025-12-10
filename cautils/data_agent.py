@@ -9,6 +9,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 from . import metadata_tool as mt
+from importlib.resources import files
 
 from google.genai.types import (
     Content,
@@ -56,6 +57,8 @@ def _gen_schema_relationships(
         )
     ]
 
+    rel_schema = files("cautils").joinpath("schemaRelationships_schema.json")
+
     genai_client = genai.Client(vertexai=True, project=project_id, location=location)
     response = genai_client.models.generate_content(
         model="gemini-2.0-flash",
@@ -63,7 +66,7 @@ def _gen_schema_relationships(
         config=GenerateContentConfig(
             system_instruction="Your goal is to infer foreign key relationships between tables in a database schema\n"
             "For input, you will be given the metadata for the tables in a yaml format\n",
-            response_json_schema=read_json("cautils/schemaRelationships_schema.json"),
+            response_json_schema=json.loads(rel_schema.read_text(encoding="utf-8")),
             response_mime_type="application/json",
         ),
     )
