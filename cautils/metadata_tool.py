@@ -40,7 +40,55 @@ def list_tables(project_id: str, dataset_id: str):
     return client.list_tables(bigquery.DatasetReference(project_id, dataset_id))
 
 
-def get_table_field_metadata(project_id: str, dataset_id: str, table_id: str) -> dict:
+def replace_fields_recursively(data):
+    """
+    Recursively finds all dictionary keys named 'fields' and replaces them
+    with 'subfields'. It handles nested dictionaries and lists.
+
+    Args:
+        data (dict, list, or other): The data structure to process.
+
+    Returns:
+        dict, list, or other: The processed data structure with keys replaced.
+    """
+
+    # --- 1. Base Case: If the data is not a collection, return it as is. ---
+    if not isinstance(data, (dict, list)):
+        return data
+
+    # --- 2. Handle Lists: Recurse on each element of the list. ---
+    if isinstance(data, list):
+        return [replace_fields_recursively(item) for item in data]
+
+    # --- 3. Handle Dictionaries: Traverse keys and values. ---
+    new_data = {}
+    for key, value in data.items():
+        # Define the new key name
+        new_key = "subfields" if key == "fields" else key
+
+        # Recursively process the value
+        new_value = replace_fields_recursively(value)
+
+        # Assign the processed value to the new key
+        new_data[new_key] = new_value
+
+    return new_data
+
+
+def export_table(table_metadata: dict) -> dict:
+    table_metadata["schema"]["fields"] = replace_fields_recursively(
+        table_metadata["schema"]["fields"]
+    )
+    table_ref = table_metadata["tableReference"]
+    return {
+        "projectId": table_ref["projectId"],
+        "datasetId": table_ref["datasetId"],
+        "tableId": table_ref["tableId"],
+        "schema": table_metadata["schema"],
+    }
+
+
+def get_table_metadata(project_id: str, dataset_id: str, table_id: str) -> dict:
     """Get metadata information about a BigQuery table fields.
 
     Args:
@@ -59,12 +107,12 @@ def get_table_field_metadata(project_id: str, dataset_id: str, table_id: str) ->
     ).to_api_repr()
 
 
-def get_tables(project_id: str, dataset_id: str):
+def get_tables_metadata(project_id: str, dataset_id: str):
     client = bigquery.Client(project=project_id)
     table_refs = client.list_tables(bigquery.DatasetReference(project_id, dataset_id))
     tables = []
     for t_ref in table_refs:
-        tables.append(client.get_table(t_ref))
+        tables.append(client.get_table(t_ref).to_api_repr())
     return tables
 
 
@@ -86,6 +134,7 @@ def get_table_ids_in_dataset(project_id: str, dataset_id: str) -> list[str]:
         table_ids.append(t_ref.table_id)
     return table_ids
 
+
 def get_table_info_direct(project_id: str, table_reference):
     client = bigquery.Client(project=project_id)
     return client.get_table(table_reference)
@@ -97,8 +146,6 @@ def get_job_info(project_id: str, job_id: str):
     job = client.get_job(job_id)
     # We need to use _properties to get the job info because it contains all
     # the job info.
-    # pylint: disable=protected-access
-    return job._properties
 
 
 def get_table_schema_and_sample_rows_old(
@@ -155,9 +202,11 @@ def get_sample_rows_json(project_id: str, dataset_id: str, table_id: str) -> str
         full_rows.append(one_row)
     return json.dumps(full_rows)
 
+
 def split_using_dots(input: str) -> list[str]:
     """splits a string having dots into individual strings"""
-    return input.split('.')
+    return input.split(".")
+
 
 if __name__ == "__main__":
     PROJECT = "as-alf-argolis"

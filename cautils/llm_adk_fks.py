@@ -46,7 +46,7 @@ weather_sentiment_agent = Agent(
     name="weather_sentiment_agent",
     instruction="""Get table information using your tools""",
     tools=[
-        FunctionTool(func=metadata_tool.get_table_field_metadata),
+        FunctionTool(func=metadata_tool.get_table_metadata),
         FunctionTool(func=metadata_tool.get_sample_rows_json),
     ],
 )

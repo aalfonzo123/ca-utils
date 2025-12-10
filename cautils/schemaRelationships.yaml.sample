@@ -1,0 +1,11 @@
+- confidenceScore: 10
+  leftSchemaPaths:
+    paths:
+    - stationId
+    tableFqn: bigquery.googleapis.com/projects/as-alf-argolis/datasets/fcc_political_ads/tables/broadcast_tv_radio_station
+  rightSchemaPaths:
+    paths:
+    - stationId
+    tableFqn: bigquery.googleapis.com/projects/as-alf-argolis/datasets/fcc_political_ads/tables/file_history
+  sources:
+  - LLM_SUGGESTED

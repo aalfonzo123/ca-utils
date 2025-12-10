@@ -25,7 +25,8 @@ def extract_yaml_from_text(text: str) -> Optional[str]:
         return ""
 
     return match.group(1)
-    #4. Infer descriptions for fields that do not have one already.
+    # 4. Infer descriptions for fields that do not have one already.
+
 
 def autogen_ds_references(bq_data_sources: list[str], output_path: str):
     query = f"""Given this list of bigquery data sources:
@@ -70,6 +71,7 @@ bq:
     asyncio.run(execute_bq_llm_prompt(query, output_path))
     logging.info(f"database schema and inferred descriptions written to: {output_path}")
 
+
 def autogen_schema_relationships(bq_data_sources: list[str], output_path: str):
     query = f"""Given this list of bigquery data sources:
     {bq_data_sources} 
@@ -97,6 +99,7 @@ def autogen_schema_relationships(bq_data_sources: list[str], output_path: str):
     asyncio.run(execute_bq_llm_prompt(query, output_path))
     logging.info(f"inferred database schema relationships written to: {output_path}")
 
+
 async def execute_bq_llm_prompt(query: str, output_path: str):
     APP_NAME = "bq_agent"
     USER_ID = "user1234"
@@ -108,19 +111,21 @@ async def execute_bq_llm_prompt(query: str, output_path: str):
         name="bq_agent",
         instruction="""Get table information using your tools""",
         tools=[
-            FunctionTool(func=metadata_tool.get_table_field_metadata),
+            FunctionTool(func=metadata_tool.get_table_metadata),
             FunctionTool(func=metadata_tool.get_table_ids_in_dataset),
             FunctionTool(func=metadata_tool.get_sample_rows_json),
-            FunctionTool(func=metadata_tool.split_using_dots)
-        ]
+            FunctionTool(func=metadata_tool.split_using_dots),
+        ],
     )
 
     session_service = InMemorySessionService()
-    await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
+    await session_service.create_session(
+        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
+    )
 
     runner = Runner(agent=bq_agent, app_name=APP_NAME, session_service=session_service)
 
-    #print(f"User Query: {query}")
+    # print(f"User Query: {query}")
     content = types.Content(role="user", parts=[types.Part(text=query)])
 
     events = runner.run(user_id=USER_ID, session_id=SESSION_ID, new_message=content)

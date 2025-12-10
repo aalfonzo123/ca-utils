@@ -1,0 +1,74 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "confidenceScore": {
+        "type": "integer",
+        "description": "A score indicating the confidence level of the schema path suggestion, 1 for lowest, 100 for highest."
+      },
+      "leftSchemaPaths": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "stationId"
+            },
+            "description": "List of path components (columns) from the left-hand schema to be used in the join."
+          },
+          "tableFqn": {
+            "type": "string",
+            "format": "uri",
+            "description": "The fully qualified name (FQN) of the left-hand table, always in this format: bigquery.googleapis.com/projects/[PROJECT_ID]/datasets/[DATASET_ID]/tables/[TABLE_ID]"
+          }
+        },
+        "required": [
+          "paths",
+          "tableFqn"
+        ],
+        "description": "Details for the left side of the suggested schema join."
+      },
+      "rightSchemaPaths": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "stationId"
+            },
+            "description": "List of path components (columns) from the right-hand schema to be used in the join."
+          },
+          "tableFqn": {
+            "type": "string",
+            "format": "uri",
+            "description": "The fully qualified name (FQN) of the right-hand table, always in this format: bigquery.googleapis.com/projects/[PROJECT_ID]/datasets/[DATASET_ID]/tables/[TABLE_ID]"
+          }
+        },
+        "required": [
+          "paths",
+          "tableFqn"
+        ],
+        "description": "Details for the right side of the suggested schema join."
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "LLM_SUGGESTED"
+          ]
+        },
+        "description": "The source(s) from which this suggestion originated (e.g., a Large Language Model)."
+      }
+    },
+    "required": [
+      "confidenceScore",
+      "leftSchemaPaths",
+      "rightSchemaPaths",
+      "sources"
+    ]
+  }
+}
