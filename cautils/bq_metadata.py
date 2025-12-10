@@ -9,8 +9,6 @@ app = App("bq-metadata")
 
 # Note: this is not being used, it was replaced by
 # data_agent.autogen
-# This one is 100% deterministic and runs almost immediately,
-# unlike the LLM based autogen.
 @app.command
 def export(project_id: str, dataset_id: str):
     tables = metadata_tool.get_tables_metadata(
