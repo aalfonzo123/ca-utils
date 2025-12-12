@@ -371,10 +371,7 @@ def delete_conversation(project_id: str, location: str, conversation_id: str):
 
 
 @app.command
-def download(
-    project_id: str,
-    location: str,
-):
+def download(project_id: str, location: str, dry_run: bool = False):
     """Downloads a data agent to the local filesystem, the name of the agent
     is inferred from the name of the current directory."""
     ca_agent_id = Path().resolve().name
@@ -387,6 +384,9 @@ def download(
         for element in DATA_AGENT_ELEMENTS:
             content = response["dataAnalyticsAgent"]["publishedContext"].get(element)
             if not content:
+                continue
+            if dry_run:
+                print(f"{element}: {content}")
                 continue
             path = Path(f"{element}.yaml")
             ask = _yaml_dump_after_confirm(lambda: content, path, ask)
