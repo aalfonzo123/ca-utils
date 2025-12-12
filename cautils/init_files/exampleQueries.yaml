@@ -1,0 +1,11 @@
+# This file has example prompts and their expected SQL queries. It is optional, but recommended
+# if the agent is not able to respond to particular prompts.
+#
+# This file should be created __manually__. The `ca-utils data-agent autogen` command can create a sample one,
+# but it won't have any real-life useful queries.
+#
+# --- begin sample ---
+# - naturalLanguageQuestion: What are the city and state of the broadcast tv radio stations?
+#   sqlQuery: SELECT communityCity, communityState FROM `as-alf-argolis.fcc_political_ads.broadcast_tv_radio_station`qDataSources:
+# --- end sample ---
+

@@ -8,6 +8,8 @@ from rich import box
 from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
+from rich.prompt import Prompt
+from typing import Callable
 from . import metadata_tool as mt
 from importlib.resources import files
 
@@ -16,12 +18,19 @@ from google.genai.types import (
     GenerateContentConfig,
     Part,
 )
-
 from google import genai
 
 from .helpers import GeminiDataAnalyticsRequestHelper
 
 app = App("data-agent")
+
+DATA_AGENT_ELEMENTS = [
+    "datasourceReferences",
+    "exampleQueries",
+    "glossaryTerms",
+    "schemaRelationships",
+    "systemInstruction",
+]
 
 
 def read_json(filename: str):
@@ -31,15 +40,90 @@ def read_json(filename: str):
     return data
 
 
-def read_bytes(filename: str):
-    with open(filename, "rb") as f:
+def read_bytes(file_path: Path):
+    with open(file_path, "rb") as f:
         data = f.read()
 
     return data
 
 
+def _resource_write_after_confirm(
+    content_generator: Callable[[], str], path: Path, ask: bool
+):
+    if path.exists() and ask:
+        choice = Prompt.ask(
+            f"File {path} exists, overwrite? [Y]es,[N]o,[A]ll",
+            choices=["y", "n", "a"],
+            default="n",
+        )
+        if choice == "n":
+            return True
+        elif choice == "a":
+            ask = False
+    path.write_text(content_generator())
+    print(f"Wrote {path}")
+    return ask
+
+
+def _yaml_dump_after_confirm(
+    content_generator: Callable[[], dict], path: Path, ask: bool
+):
+    if path.exists() and ask:
+        choice = Prompt.ask(
+            f"File {path} exists, overwrite? [Y]es,[N]o,[A]ll",
+            choices=["y", "n", "a"],
+            default="n",
+        )
+        if choice == "n":
+            return True
+        elif choice == "a":
+            ask = False
+    with open(path, "w") as file:
+        yaml.safe_dump(content_generator(), file)
+        print(f"Wrote {path}")
+    return ask
+
+
+def _gen_example_queries(
+    project_id: str, location: str, data_source_references_path: Path
+):
+    """Generates the schemaRelationships.yaml file, by calling an LLM with:
+    - input: the data_sourceReferences.yaml file
+    - output schema: a json schema file that matches the expected output
+    """
+    history = [
+        Content(
+            role="user",
+            parts=[
+                Part.from_bytes(
+                    data=read_bytes(data_source_references_path),
+                    mime_type="text/plain",
+                ),
+            ],
+        )
+    ]
+
+    rel_schema = files("cautils").joinpath("exampleQueries_schema.json")
+
+    genai_client = genai.Client(vertexai=True, project=project_id, location=location)
+    response = genai_client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=history,
+        config=GenerateContentConfig(
+            system_instruction="Your goal is to create one sample natural language query and its corresponding SQL statement\n"
+            "For input, you will be given the metadata for the tables in a yaml format\n",
+            response_json_schema=json.loads(rel_schema.read_text(encoding="utf-8")),
+            response_mime_type="application/json",
+        ),
+    )
+    if response.candidates:
+        return json.loads(response.candidates[0].content.parts[0].text)
+    else:
+        raise Exception("no response from LLM")
+
+
 def _gen_schema_relationships(
-    project_id: str, location: str, data_source_references_path: str
+    project_id: str, location: str, data_source_references_path: Path
 ):
     """Generates the schemaRelationships.yaml file, by calling an LLM with:
     - input: the data_sourceReferences.yaml file
@@ -77,46 +161,81 @@ def _gen_schema_relationships(
 
 
 @app.command
+def init():
+    """Copies initial config files to the current directory."""
+    try:
+        ask = True
+        for resource in files("cautils.init_files").iterdir():
+            if resource.is_file():
+                dest_file = Path(resource.name)
+
+                ask = _resource_write_after_confirm(
+                    lambda: resource.read_text(),
+                    dest_file,
+                    ask,
+                )
+        rprint("[green]Init succeeded[/green]")
+    except FileExistsError as e:
+        rprint(f"[bright_red]{e}[/bright_red]")
+
+
+@app.command
 def autogen(
     project_id: str,
     location: str,
-    base_dir: str,
-    ca_agent_id: str,
+    gen_data_source_references: bool = True,
     gen_schema_relationships: bool = True,
+    gen_example_queries: bool = True,
 ):
     """Auto generates data agent files based on specification"""
     try:
-        path_name = f"{base_dir}/{ca_agent_id}"
-        with open(f"{path_name}/autogen.yaml", "r") as file:
-            autogen = yaml.safe_load(file)
+        data_source_references_path = Path("datasourceReferences.yaml")
+        ask = True
+        if gen_data_source_references:
+            with open("autogen.yaml", "r") as file:
+                autogen = yaml.safe_load(file)
 
-        table_extracts = []
-        for named_table in autogen["bqDataSources"]:
-            parts = named_table.strip().split(".")
-            print(f"exporting {named_table}")
-            if parts[2] == "*":
-                for table_meta in mt.get_tables_metadata(parts[0], parts[1]):
+            table_extracts = []
+            for named_table in autogen["bqDataSources"]:
+                parts = named_table.strip().split(".")
+                print(f"exporting {named_table}")
+                if parts[2] == "*":
+                    for table_meta in mt.get_tables_metadata(parts[0], parts[1]):
+                        table_extracts.append(mt.export_table(table_meta))
+                else:
+                    table_meta = mt.get_table_metadata(parts[0], parts[1], parts[2])
                     table_extracts.append(mt.export_table(table_meta))
-            else:
-                table_meta = mt.get_table_metadata(parts[0], parts[1], parts[2])
-                table_extracts.append(mt.export_table(table_meta))
 
-        data_source_references_path = f"{path_name}/datasourceReferences.yaml"
-        with open(data_source_references_path, "w") as dsr_file:
-            yaml.safe_dump({"bq": {"tableReferences": table_extracts}}, dsr_file)
+            ask = _yaml_dump_after_confirm(
+                lambda: {"bq": {"tableReferences": table_extracts}},
+                data_source_references_path,
+                ask,
+            )
+
+        if not data_source_references_path.exists():
+            raise FileNotFoundError(
+                f"Cannot generate content if {data_source_references_path} does not exist"
+            )
+
+        if gen_example_queries:
+            ask = _yaml_dump_after_confirm(
+                lambda: _gen_example_queries(
+                    project_id, location, data_source_references_path
+                ),
+                Path("exampleQueries.yaml"),
+                ask,
+            )
 
         if gen_schema_relationships:
-            print("exporting schema relationships")
-            with open(f"{path_name}/schemaRelationships.yaml", "w") as rel_file:
-                yaml.safe_dump(
-                    _gen_schema_relationships(
-                        project_id, location, data_source_references_path
-                    ),
-                    rel_file,
-                )
-
+            ask = _yaml_dump_after_confirm(
+                lambda: _gen_schema_relationships(
+                    project_id, location, data_source_references_path
+                ),
+                Path("schemaRelationships.yaml"),
+                ask,
+            )
         rprint("[green]Files auto generated[/green]")
-    except OSError as e:
+    except (FileExistsError, OSError) as e:
         rprint(f"[bright_red]{e}[/bright_red]")
 
 
@@ -124,31 +243,25 @@ def autogen(
 def upload(
     project_id: str,
     location: str,
-    base_dir: str,
-    ca_agent_id: str,
     patch: bool = False,
 ):
+    ca_agent_id = Path().resolve().name
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
-    path_name = f"{base_dir}/{ca_agent_id}"
-    with open(f"{path_name}/systemInstruction.txt", "r") as file:
-        systemInstruction = file.read()
-    with open(f"{path_name}/datasourceReferences.yaml", "r") as file:
-        datasourceReferences = yaml.safe_load(file)
-    with open(f"{path_name}/schemaRelationships.yaml", "r") as file:
-        schemaRelationships = yaml.safe_load(file)
+    publishedContext = {}
+    for element in DATA_AGENT_ELEMENTS:
+        path = Path(f"{element}.yaml")
+        if path.exists():
+            with open(path, "r") as file:
+                publishedContext[element] = yaml.safe_load(file)
+            print(f"Added {element}")
 
     payload = {
         # "displayName": display_name,
-        "dataAnalyticsAgent": {
-            "publishedContext": {
-                "systemInstruction": systemInstruction,
-                "datasourceReferences": datasourceReferences,
-                "schemaRelationships": schemaRelationships,
-            }
-        },
+        "dataAnalyticsAgent": {"publishedContext": publishedContext},
     }
     # print(json.dumps(payload, indent=2))
     try:
+        print(f"Uploading agent {ca_agent_id}")
         if patch:
             params = {"updateMask": "dataAnalyticsAgent.publishedContext"}
             response = helper.patch(f"dataAgents/{ca_agent_id}", payload, params)
@@ -198,13 +311,18 @@ def print_agent_list(data):
 
         table.add_row(name, display_name, system_instruction, data_source)
 
+    console = Console(highlight=False)
+    console.print(table)
+
 
 @app.command
 def list(project_id: str, location: str):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     params = {"pageSize": 10}
     try:
-        print_agent_list(helper.get("dataAgents", params))
+        response = helper.get("dataAgents", params)
+        # rprint(response)
+        print_agent_list(response)
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
@@ -256,36 +374,24 @@ def delete_conversation(project_id: str, location: str, conversation_id: str):
 def download(
     project_id: str,
     location: str,
-    base_dir: str,
-    ca_agent_id: str,
-    overwrite_ok: bool = False,
 ):
+    """Downloads a data agent to the local filesystem, the name of the agent
+    is inferred from the name of the current directory."""
+    ca_agent_id = Path().resolve().name
+    rprint(f"[green]Downloading agent '{ca_agent_id}' to the current folder[/green]")
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     try:
         response = helper.get(f"dataAgents/{ca_agent_id}")
         # print(json.dumps(response, indent=2))
-        path_name = f"{base_dir}/{ca_agent_id}"
-        Path(path_name).mkdir(exist_ok=overwrite_ok)
-        with open(f"{path_name}/systemInstruction.txt", "w") as file:
-            file.write(
-                response["dataAnalyticsAgent"]["publishedContext"]["systemInstruction"]
-            )
-        with open(f"{path_name}/datasourceReferences.yaml", "w") as file:
-            yaml.dump(
-                response["dataAnalyticsAgent"]["publishedContext"][
-                    "datasourceReferences"
-                ],
-                file,
-            )
-        with open(f"{path_name}/schemaRelationships.yaml", "w") as file:
-            yaml.dump(
-                response["dataAnalyticsAgent"]["publishedContext"][
-                    "schemaRelationships"
-                ],
-                file,
-            )
+        ask = True
+        for element in DATA_AGENT_ELEMENTS:
+            content = response["dataAnalyticsAgent"]["publishedContext"].get(element)
+            if not content:
+                continue
+            path = Path(f"{element}.yaml")
+            ask = _yaml_dump_after_confirm(lambda: content, path, ask)
 
-        rprint(f"[green]Data Agent downloaded to {path_name}[/green]")
+        rprint("[green]Data Agent downloaded to the current folder[/green]")
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
     except FileExistsError as e:

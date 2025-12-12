@@ -1,0 +1,3 @@
+# This file has metadata on all the tables the data agent will use for its queries.
+# Create it with `ca-utils data-agent autogen`, it does not make much
+# sense to create it manually.

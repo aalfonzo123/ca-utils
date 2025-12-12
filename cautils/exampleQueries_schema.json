@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Natural Language to SQL Query Pair",
+  "type": "array",
+  "description": "A list of objects, each containing a natural language question and its corresponding SQL query.",
+  "items": {
+    "type": "object",
+    "properties": {
+      "naturalLanguageQuestion": {
+        "type": "string",
+        "description": "The question phrased in natural human language."
+      },
+      "sqlQuery": {
+        "type": "string",
+        "description": "The structured SQL query that answers the natural language question."
+      }
+    },
+    "required": [
+      "naturalLanguageQuestion",
+      "sqlQuery"
+    ],
+    "additionalProperties": false
+  }
+}

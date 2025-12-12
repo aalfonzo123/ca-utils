@@ -1,0 +1,20 @@
+# This file has a list of relationships between tables. It is used by the data agent to do joins
+# between them on SQL statements.
+#
+# A draft of this file should be created with `ca-utils data-agent autogen`, and then manually
+# modified, as it can have mistakes or omissions. For this file, autogen infers contents
+# using an LLM, it is not a deterministic process.
+#
+# --- begin sample ---
+# - confidenceScore: 95
+#   leftSchemaPaths:
+#     paths:
+#     - stationId
+#     tableFqn: bigquery.googleapis.com/projects/as-alf-argolis/datasets/fcc_political_ads/tables/broadcast_tv_radio_station
+#   rightSchemaPaths:
+#     paths:
+#     - stationId
+#     tableFqn: bigquery.googleapis.com/projects/as-alf-argolis/datasets/fcc_political_ads/tables/file_history
+#   sources:
+#   - LLM_SUGGESTED
+# --- end sample ---

@@ -1,0 +1,13 @@
+# This file serves as input to the `python -m cautils.main data-agent autogen` command.
+# In this file you specify the BigQuery tables from which metadata will be extracted.
+#
+# --- begin sample ---
+# bqDataSources:
+#   - as-alf-argolis.fcc_political_ads.*
+#   - as-alf-argolis.fda_food.food_enforcement
+# --- end sample ---
+#
+# There are two formats:
+# - project.dataset.table. For a single table
+# - project.dataset.*. For all the tables in a dataset
+

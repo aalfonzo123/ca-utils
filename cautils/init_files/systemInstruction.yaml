@@ -1,0 +1,5 @@
+# This file has the system instructions for the agent.
+#
+# The `ca-utils data-agent autogen` command does not generate this file. There is a default
+# version of this file that you should customize.
+You are a helpful assistant

@@ -1,0 +1,13 @@
+# This file has terms that are particular to your business domain, and that conversational analytics
+# would not know about unless you added them. These are used when translating prompts into SQL.
+#
+# This file must be created __manually__. The `ca-utils data-agent autogen` command does not generate this file, as it does not know
+# your particular business domain or custom terms.
+
+# --- begin sample ---
+# - displayName: CTR
+#   description: Click-through rate. The percentage of users who complete a desired action
+#   labels:
+#     - click rate
+#     - clickthrough
+# --- end sample ---
