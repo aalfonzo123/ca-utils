@@ -21,7 +21,7 @@ dependencies = [
 packages = ["cautils"]
 
 [tool.setuptools.package-data]
-cautils = ["schemaRelationships_schema.json"]
+cautils = ["schemaRelationships_schema.json", "exampleQueries_schema.json", "init_files/*"]
 
 [project.scripts]
 ca-utils = "cautils:main.app"
