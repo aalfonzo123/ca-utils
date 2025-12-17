@@ -283,7 +283,11 @@ def upload(
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
 
-def print_agent_list(data):
+def print_agent_list(data, format_raw: bool):
+    if format_raw:
+        print(json.dumps(data, indent=2))
+        return
+
     table = Table(box=box.SQUARE, show_lines=True)
     table.add_column("Name", style="bright_green")
     table.add_column("Display Name")
@@ -316,13 +320,13 @@ def print_agent_list(data):
 
 
 @app.command
-def list(project_id: str, location: str):
+def list(project_id: str, location: str, format_raw: bool):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     params = {"pageSize": 10}
     try:
         response = helper.get("dataAgents", params)
         # rprint(response)
-        print_agent_list(response)
+        print_agent_list(response, format_raw)
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
@@ -403,7 +407,9 @@ def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     payload = {
         "messages": [{"userMessage": {"text": prompt}}],
-        "dataAgentContext": {"dataAgent": ca_agent_id},
+        "dataAgentContext": {
+            "dataAgent": f"projects/{project_id}/locations/{location}/dataAgents/{ca_agent_id}"
+        },
     }
     try:
         response = helper.post(":chat", payload)

@@ -10,4 +10,10 @@
 # There are two formats:
 # - project.dataset.table. For a single table
 # - project.dataset.*. For all the tables in a dataset
+#
+#
+# Note: make sure that all fields and all tables have a description.
+# It makes a __very important__ difference in the agent’s ability to create proper SQL
+# and therefore a __very important__ difference in response quality. To automatically
+# create those descriptions, you can use Gemini BQ data insights.
 

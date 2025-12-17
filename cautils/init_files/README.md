@@ -1,4 +1,4 @@
-This directory represents a (conversational analytics data agent)[https://docs.cloud.google.com/gemini/docs/conversational-analytics-api/reference/rest/v1alpha/projects.locations.dataAgents/create?rep_location=global], split into multiple, easier to handle, files.
+This directory represents a [conversational analytics data agent](https://docs.cloud.google.com/gemini/docs/conversational-analytics-api/reference/rest/v1alpha/projects.locations.dataAgents/create?rep_location=global), split into multiple, easier to handle, files.
 
 ## autogen.yaml
 
@@ -10,6 +10,8 @@ In this file you specify the BigQuery tables from which metadata will be extract
 This file has metadata on all the tables the data agent will use for its queries. 
 Create it with `ca-utils data-agent autogen`, it does not make much
 sense to create it manually.
+
+Note: make sure that all fields and all tables have a description. It makes a __very important__ difference in the agent’s ability to create proper SQL and therefore a __very important__ difference in response quality. To automatically create those descriptions, you can use [Gemini BQ data insights](https://docs.cloud.google.com/bigquery/docs/data-insights#add_a_table_description).
 
 ## exampleQueries.yaml
 
