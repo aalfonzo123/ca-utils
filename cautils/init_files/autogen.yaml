@@ -1,4 +1,4 @@
-# This file serves as input to the `python -m cautils.main data-agent autogen` command.
+# This file serves as input to the `ca-utils data-agent autogen` command.
 # In this file you specify the BigQuery tables from which metadata will be extracted.
 #
 # --- begin sample ---
