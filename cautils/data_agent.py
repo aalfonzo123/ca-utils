@@ -33,6 +33,12 @@ DATA_AGENT_ELEMENTS = [
 ]
 
 
+def copy_if_exists(from_dict: dict, to_dict: dict, keys: list[str]):
+    for k in keys:
+        if k in from_dict:
+            to_dict[k] = from_dict[k]
+
+
 def read_json(filename: str):
     with open(filename, "r") as f:
         data = json.load(f)
@@ -256,14 +262,22 @@ def upload(
             print(f"Added {element}")
 
     payload = {
-        # "displayName": display_name,
         "dataAnalyticsAgent": {"publishedContext": publishedContext},
     }
+    # add metadata
+    path = Path("agentMetadata.yaml")
+    if path.exists():
+        with open(path, "r") as file:
+            metadata = yaml.safe_load(file)
+        copy_if_exists(metadata, payload, ["displayName", "description"])
+        print("Added metadata")
     # print(json.dumps(payload, indent=2))
     try:
         print(f"Uploading agent {ca_agent_id}")
         if patch:
-            params = {"updateMask": "dataAnalyticsAgent.publishedContext"}
+            params = {
+                "updateMask": "dataAnalyticsAgent.publishedContext,displayName,description"
+            }
             response = helper.patch(f"dataAgents/{ca_agent_id}", payload, params)
         else:
             params = {"dataAgentId": ca_agent_id}
@@ -292,7 +306,7 @@ def print_agent_list(data, format_raw: bool):
     table.add_column("Name", style="bright_green")
     table.add_column("Display Name")
     table.add_column("System Instruction")
-    table.add_column("Data Source")
+    table.add_column("Data Source", overflow="fold")
 
     for item in data.get("dataAgents", []):
         name = item["name"].split("/")[-1]
@@ -302,10 +316,15 @@ def print_agent_list(data, format_raw: bool):
         system_instruction = pc.get("systemInstruction", "N.A")[:80]
         dsr = pc.get("datasourceReferences", {})
         bq = dsr.get("bq", {})
-        bq_table_count = len(bq.get("tableReferences", []))
+        bq_tables = ",".join(
+            [
+                f"{t['datasetId']}.{t.get('tableId', '*')}"
+                for t in bq.get("tableReferences", [])
+            ]
+        )
 
         if bq:
-            data_source = f"bq. {bq_table_count} tables"
+            data_source = f"bq: {bq_tables} "
         elif dsr.get("studio"):
             data_source = "looker studio"
         elif dsr.get("looker"):
@@ -320,7 +339,7 @@ def print_agent_list(data, format_raw: bool):
 
 
 @app.command
-def list(project_id: str, location: str, format_raw: bool):
+def list(project_id: str, location: str, format_raw: bool = False):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     params = {"pageSize": 10}
     try:
@@ -392,9 +411,16 @@ def download(project_id: str, location: str, dry_run: bool = False):
             if dry_run:
                 print(f"{element}: {content}")
                 continue
-            path = Path(f"{element}.yaml")
-            ask = _yaml_dump_after_confirm(lambda: content, path, ask)
+            ask = _yaml_dump_after_confirm(
+                lambda: content, Path(f"{element}.yaml"), ask
+            )
 
+        metadata = {}
+        copy_if_exists(response, metadata, ["displayName", "description"])
+        if metadata and not dry_run:
+            ask = _yaml_dump_after_confirm(
+                lambda: metadata, Path("agentMetadata.yaml"), ask
+            )
         rprint("[green]Data Agent downloaded to the current folder[/green]")
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")

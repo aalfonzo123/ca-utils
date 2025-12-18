@@ -1,0 +1,5 @@
+# This file has metadata on the CA agent, only the fields on this sample are allowed:
+# --- begin sample ---
+# displayName: "finance indicators agent"
+# description: "this agent has information on finance tables such as: kpis, yearly_summary"
+# --- end sample ---
