@@ -4,13 +4,22 @@ from yaml import dump
 import json
 from . import metadata_tool
 
-app = App("bq-metadata")
+app = App(
+    "bq-metadata",
+    help="commands related to bigquery metadata extraction (this section is obsolete, but hasn't been deleted)",
+)
 
 
 # Note: this is not being used, it was replaced by
 # data_agent.autogen
 @app.command
 def export(project_id: str, dataset_id: str):
+    """Exports BigQuery table metadata.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        dataset_id: The ID of the BigQuery dataset.
+    """
     tables = metadata_tool.get_tables_metadata(
         project_id=project_id, dataset_id=dataset_id
     )

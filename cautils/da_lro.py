@@ -9,7 +9,10 @@ import time
 
 from .helpers import GeminiDataAnalyticsRequestHelper
 
-app = App("da-lro")
+app = App(
+    "da-lro",
+    "commands related to conversational analytics long running operations. i.e. deployments",
+)
 
 
 def generate_table(data):
@@ -49,6 +52,12 @@ def generate_table(data):
 
 @app.command()
 def list(project_id: str, location: str):
+    """Lists long running operations (LROs) in the specified project and location.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+    """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     params = {"pageSize": 10}
     data = helper.get("operations", params)
@@ -59,6 +68,13 @@ def list(project_id: str, location: str):
 
 @app.command()
 def follow(project_id: str, location: str, lro_id: str):
+    """Follows the status of a specific long running operation (LRO).
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        lro_id: The ID of the long running operation to follow.
+    """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
 
     SLEEP = 15

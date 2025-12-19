@@ -22,7 +22,7 @@ from google import genai
 
 from .helpers import GeminiDataAnalyticsRequestHelper
 
-app = App("data-agent")
+app = App("data-agent", help="commands related to conversational analytics api agents")
 
 DATA_AGENT_ELEMENTS = [
     "datasourceReferences",
@@ -193,7 +193,15 @@ def autogen(
     gen_schema_relationships: bool = True,
     gen_example_queries: bool = True,
 ):
-    """Auto generates data agent files based on specification"""
+    """Auto generates data agent files based on specification.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        gen_data_source_references: Whether to generate data source references.
+        gen_schema_relationships: Whether to generate schema relationships.
+        gen_example_queries: Whether to generate example queries.
+    """
     try:
         data_source_references_path = Path("datasourceReferences.yaml")
         ask = True
@@ -251,6 +259,13 @@ def upload(
     location: str,
     patch: bool = False,
 ):
+    """Uploads data agent files to the specified project and location.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        patch: Whether to patch an existing agent.
+    """
     ca_agent_id = Path().resolve().name
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     publishedContext = {}
@@ -342,6 +357,13 @@ def print_agent_list(data, format_raw: bool):
 
 @app.command
 def list(project_id: str, location: str, format_raw: bool = False):
+    """Lists data agents in the specified project and location.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        format_raw: Whether to print the raw JSON output.
+    """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     params = {"pageSize": 10}
     try:
@@ -373,6 +395,12 @@ def print_conversation_list(data):
 
 @app.command
 def list_conversation(project_id: str, location: str):
+    """Lists conversations in the specified project and location.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+    """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     params = {
         "pageSize": 5,
@@ -387,6 +415,13 @@ def list_conversation(project_id: str, location: str):
 
 @app.command
 def delete_conversation(project_id: str, location: str, conversation_id: str):
+    """Deletes a specific conversation by ID.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        conversation_id: The ID of the conversation to delete.
+    """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     try:
         helper.delete(f"conversations/{conversation_id}")
@@ -397,8 +432,15 @@ def delete_conversation(project_id: str, location: str, conversation_id: str):
 
 @app.command
 def download(project_id: str, location: str, dry_run: bool = False):
-    """Downloads a data agent to the local filesystem, the name of the agent
-    is inferred from the name of the current directory."""
+    """Downloads a data agent to the local filesystem.
+
+    The name of the agent is inferred from the name of the current directory.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        dry_run: If true, prints the downloaded content instead of writing to files.
+    """
     ca_agent_id = Path().resolve().name
     rprint(f"[green]Downloading agent '{ca_agent_id}' to the current folder[/green]")
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
@@ -432,6 +474,14 @@ def download(project_id: str, location: str, dry_run: bool = False):
 
 @app.command
 def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
+    """Initiates a chat with a specified data agent.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        ca_agent_id: The ID of the data agent to chat with.
+        prompt: The user's prompt.
+    """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     payload = {
         "messages": [{"userMessage": {"text": prompt}}],
