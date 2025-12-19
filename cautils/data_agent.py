@@ -305,12 +305,14 @@ def print_agent_list(data, format_raw: bool):
     table = Table(box=box.SQUARE, show_lines=True)
     table.add_column("Name", style="bright_green")
     table.add_column("Display Name")
-    table.add_column("System Instruction")
+    table.add_column("Description", overflow="fold")
+    table.add_column("System Instruction", overflow="fold")
     table.add_column("Data Source", overflow="fold")
 
     for item in data.get("dataAgents", []):
         name = item["name"].split("/")[-1]
         display_name = item.get("displayName", "N.A")
+        description = item.get("description", "N.A")
         da = item.get("dataAnalyticsAgent", {})
         pc = da.get("publishedContext", {})
         system_instruction = pc.get("systemInstruction", "N.A")[:80]
@@ -332,7 +334,7 @@ def print_agent_list(data, format_raw: bool):
         else:
             data_source = "?"
 
-        table.add_row(name, display_name, system_instruction, data_source)
+        table.add_row(name, display_name, description, system_instruction, data_source)
 
     console = Console(highlight=False)
     console.print(table)
