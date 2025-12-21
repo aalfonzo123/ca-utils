@@ -20,7 +20,7 @@ from google.genai.types import (
 )
 from google import genai
 
-from .helpers import GeminiDataAnalyticsRequestHelper
+from .helpers import GeminiDataAnalyticsRequestHelper, paginate
 
 app = App("data-agent", help="commands related to conversational analytics api agents")
 
@@ -365,13 +365,10 @@ def list(project_id: str, location: str, format_raw: bool = False):
         format_raw: Whether to print the raw JSON output.
     """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
-    params = {"pageSize": 10}
-    try:
-        response = helper.get("dataAgents", params)
-        # rprint(response)
-        print_agent_list(response, format_raw)
-    except HTTPError as e:
-        rprint(f"[bright_red]{e.response.text}[/bright_red]")
+    paginate(
+        lambda params: helper.get("dataAgents", params),
+        lambda data: print_agent_list(data, format_raw),
+    )
 
 
 def print_conversation_list(data):
@@ -402,15 +399,10 @@ def list_conversation(project_id: str, location: str):
         location: The Google Cloud location.
     """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
-    params = {
-        "pageSize": 5,
-        # "filter": '1=2 AND agents:"abc"',
-        "filter": 'createTime > "2026-01-28T06:51:56-08:00"',
-    }
-    try:
-        print_conversation_list(helper.get("conversations", params))
-    except HTTPError as e:
-        rprint(f"[bright_red]{e.response.text}[/bright_red]")
+    paginate(
+        lambda params: helper.get("conversations", params),
+        lambda data: print_conversation_list(data),
+    )
 
 
 @app.command

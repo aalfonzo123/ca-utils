@@ -7,7 +7,7 @@ from rich.live import Live
 from rich import print as rprint
 import time
 
-from .helpers import GeminiDataAnalyticsRequestHelper
+from .helpers import GeminiDataAnalyticsRequestHelper, paginate
 
 app = App(
     "da-lro",
@@ -15,7 +15,7 @@ app = App(
 )
 
 
-def generate_table(data):
+def print_list(data):
     table = Table(box=box.SQUARE, show_lines=True)
     table.add_column("LRO IDs", style="bright_green")
     table.add_column("Verb\nTarget", overflow="fold")
@@ -47,7 +47,8 @@ def generate_table(data):
 
         table.add_row(name, verb + "\n" + target, status + "\n" + dates, response)
 
-    return table
+    console = Console(highlight=False)
+    console.print(table)
 
 
 @app.command()
@@ -59,11 +60,10 @@ def list(project_id: str, location: str):
         location: The Google Cloud location.
     """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
-    params = {"pageSize": 10}
-    data = helper.get("operations", params)
-    console = Console(highlight=False)
-    # print(json.dumps(data, indent=2))
-    console.print(generate_table(data))
+    paginate(
+        lambda params: helper.get("operations", params),
+        lambda data: print_list(data),
+    )
 
 
 @app.command()
@@ -87,7 +87,7 @@ def follow(project_id: str, location: str, lro_id: str):
         while True:
             current_elapsed_seconds = time.monotonic() - start_time
             lro_data = helper.get(f"operations/{lro_id}")
-            live.update(generate_table({"operations": [lro_data]}), refresh=True)
+            live.update(print_list({"operations": [lro_data]}), refresh=True)
             if lro_data.get("done", False):
                 break
             time.sleep(SLEEP)
