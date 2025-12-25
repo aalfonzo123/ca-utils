@@ -34,6 +34,8 @@ DATA_AGENT_ELEMENTS = [
 
 
 def copy_if_exists(from_dict: dict, to_dict: dict, keys: list[str]):
+    if not from_dict:
+        return
     for k in keys:
         if k in from_dict:
             to_dict[k] = from_dict[k]
@@ -209,6 +211,8 @@ def autogen(
             with open("autogen.yaml", "r") as file:
                 autogen = yaml.safe_load(file)
 
+            if not autogen or not "bqDataSources" in autogen:
+                raise ValueError("autogen.yaml must specify bqDataSources")
             table_extracts = []
             for named_table in autogen["bqDataSources"]:
                 parts = named_table.strip().split(".")
@@ -249,7 +253,7 @@ def autogen(
                 ask,
             )
         rprint("[green]Files auto generated[/green]")
-    except (FileExistsError, OSError) as e:
+    except (FileExistsError, OSError, ValueError) as e:
         rprint(f"[bright_red]{e}[/bright_red]")
 
 
