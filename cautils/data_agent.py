@@ -10,15 +10,9 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 from typing import Callable
-from . import metadata_tool as mt
+
 from importlib.resources import files
 
-from google.genai.types import (
-    Content,
-    GenerateContentConfig,
-    Part,
-)
-from google import genai
 
 from .helpers import GeminiDataAnalyticsRequestHelper, paginate
 
@@ -95,6 +89,13 @@ def _yaml_dump_after_confirm(
 def _gen_example_queries(
     project_id: str, location: str, data_source_references_path: Path
 ):
+    from google.genai.types import (
+        Content,
+        GenerateContentConfig,
+        Part,
+    )
+    from google import genai
+
     """Generates the schemaRelationships.yaml file, by calling an LLM with:
     - input: the data_sourceReferences.yaml file
     - output schema: a json schema file that matches the expected output
@@ -133,6 +134,13 @@ def _gen_example_queries(
 def _gen_schema_relationships(
     project_id: str, location: str, data_source_references_path: Path
 ):
+    from google.genai.types import (
+        Content,
+        GenerateContentConfig,
+        Part,
+    )
+    from google import genai
+
     """Generates the schemaRelationships.yaml file, by calling an LLM with:
     - input: the data_sourceReferences.yaml file
     - output schema: a json schema file that matches the expected output
@@ -208,6 +216,8 @@ def autogen(
         data_source_references_path = Path("datasourceReferences.yaml")
         ask = True
         if gen_data_source_references:
+            from . import metadata_tool as mt
+
             with open("autogen.yaml", "r") as file:
                 autogen = yaml.safe_load(file)
 

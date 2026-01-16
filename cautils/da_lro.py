@@ -1,5 +1,4 @@
 from rich.console import Console
-import json
 from cyclopts import App
 from rich.table import Table
 from rich import box

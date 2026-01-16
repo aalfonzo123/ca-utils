@@ -29,3 +29,9 @@ def paginate(retriever: Callable, printer: Callable):
                 break
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
+
+
+class DataPlexRequestHelper(GoogleRequestHelper):
+    def __init__(self, project_id, location):
+        self.base_url = f"https://dataplex.googleapis.com/v1/projects/{project_id}/locations/{location}/"
+        super().__init__(project_id, self.base_url)

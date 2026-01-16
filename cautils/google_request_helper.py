@@ -1,8 +1,4 @@
-import json
 import requests
-from google import auth as google_auth
-from google.auth.transport import requests as google_requests
-from urllib.parse import urlencode
 
 
 class GoogleRequestHelper:
@@ -12,6 +8,9 @@ class GoogleRequestHelper:
 
     def _get_access_token(self) -> str:
         try:
+            from google import auth as google_auth
+            from google.auth.transport import requests as google_requests
+
             credentials, _ = google_auth.default()
             auth_request = google_requests.Request()
             credentials.refresh(auth_request)
