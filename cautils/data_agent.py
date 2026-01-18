@@ -15,6 +15,12 @@ from importlib.resources import files
 
 
 from .helpers import GeminiDataAnalyticsRequestHelper, paginate
+from .print_list_helper import (
+    after_last_slash_multi,
+    get_table_generic,
+    after_last_slash,
+    DEFAULT_VALUE,
+)
 
 app = App("data-agent", help="commands related to conversational analytics api agents")
 
@@ -221,7 +227,7 @@ def autogen(
             with open("autogen.yaml", "r") as file:
                 autogen = yaml.safe_load(file)
 
-            if not autogen or not "bqDataSources" in autogen:
+            if not autogen or "bqDataSources" not in autogen:
                 raise ValueError("autogen.yaml must specify bqDataSources")
             table_extracts = []
             for named_table in autogen["bqDataSources"]:
@@ -386,22 +392,23 @@ def list(project_id: str, location: str, format_raw: bool = False):
 
 
 def print_conversation_list(data):
-    # print(json.dumps(data, indent=2))
-    # return
-    table = Table(box=box.SQUARE, show_lines=True)
-    table.add_column("Name", style="bright_green")
-    table.add_column("Agents")
-    table.add_column("Dates")
-
-    for item in data.get("conversations", []):
-        name = item["name"].split("/")[-1]
-        agents = ",".join([a.split("/")[-1] for a in item.get("agents", [])])
-        dates = f"created:{item['createTime']}\nlast updated:{item['lastUsedTime']}"
-
-        table.add_row(name, agents, dates)
-
-    console = Console(highlight=False)
-    console.print(table)
+    app.console.print(
+        get_table_generic(
+            data.get("conversations"),
+            {
+                "Name": {
+                    "opts": {"style": "bright_green"},
+                    "path": "name",
+                    "proc": after_last_slash,
+                },
+                "Agents": {"path": "agents", "proc": after_last_slash_multi},
+                "Dates": {
+                    "path": ["createTime", "lastUsedTime"],
+                    "proc": lambda values: f"created:{values['createTime']}\nlast updated:{values['lastUsedTime']}",
+                },
+            },
+        )
+    )
 
 
 @app.command
