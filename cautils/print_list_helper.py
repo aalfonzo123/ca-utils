@@ -75,7 +75,8 @@ def _get_safe(obj: Any, path: Union[str, list[str]], base_path: str = "") -> Any
     Returns:
         If `path` is a string: The value found at the specified path, or `None` if not found.
         If `path` is a list of strings: A dictionary where keys are the original paths
-        and values are the results of looking for each path in the object (`None` if not found).
+        and values are the results of looking for each path in the object (key will
+        not exist if path was not found).
         Returns `None` if `path` is neither a string nor a list.
     """
     base_path = (
@@ -86,7 +87,8 @@ def _get_safe(obj: Any, path: Union[str, list[str]], base_path: str = "") -> Any
     elif isinstance(path, list):
         result_dict = {}
         for p_str in path:
-            result_dict[p_str] = _get_safe_single_path(obj, base_path + p_str)
+            if get_safe_once := _get_safe_single_path(obj, base_path + p_str):
+                result_dict[p_str] = get_safe_once
         return result_dict
     else:
         return None

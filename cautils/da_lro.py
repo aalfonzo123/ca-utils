@@ -7,6 +7,7 @@ from rich import print as rprint
 import time
 
 from .helpers import GeminiDataAnalyticsRequestHelper, paginate
+from .print_list_helper import DEFAULT_VALUE, get_table_generic
 
 app = App(
     "da-lro",
@@ -15,39 +16,51 @@ app = App(
 
 
 def print_list(data):
-    table = Table(box=box.SQUARE, show_lines=True)
-    table.add_column("LRO IDs", style="bright_green")
-    table.add_column("Verb\nTarget", overflow="fold")
-    table.add_column("Status\nDates")
-    table.add_column("Response", overflow="fold")
-
-    for item in data.get("operations", []):
-        name = "\n".join(item["name"].split("/")[4:])
-        metadata = item.get("metadata", {})
-        verb = metadata.get("verb", "N/A")
-        target = metadata.get("target", "N/A")
-        create_time = metadata.get("createTime", "N.A")
-        end_time = metadata.get("updateTime", "N.A")
-        dates = f"create: {create_time}\nupdate: {end_time}"
-
-        if item.get("done"):
-            status = "done"
-            error = item.get("error")
-            if error:
-                status = "[bright_red]error[/bright_red]"
-                response = f"code:{error.get('code')}\nmessage:{error.get('message')}"
-            item_response = item.get("response")
-            if item_response:
-                status = "[bright_green]success[/bright_green]"
-                response = ""
-        else:
-            status = "running"
-            response = "N/A"
-
-        table.add_row(name, verb + "\n" + target, status + "\n" + dates, response)
-
-    console = Console(highlight=False)
-    console.print(table)
+    app.console.print(
+        get_table_generic(
+            data.get("operations"),
+            {
+                "LRO IDs": {
+                    "path": "name",
+                    "opts": {"style": "bright_green"},
+                    "proc": lambda name: "\n".join(name.split("/")[4:]),
+                },
+                "Verb\nTarget": {
+                    "path": ["verb", "target"],
+                    "base_path": "metadata",
+                    "opts": {"overflow": "fold"},
+                    "proc": lambda item: f"{item.get('verb') or DEFAULT_VALUE}\n{item.get('target') or DEFAULT_VALUE}",
+                },
+                "Status\nDates": {
+                    "path": [
+                        "metadata.createTime",
+                        "metadata.updateTime",
+                        "done",
+                        "error",
+                    ],
+                    "proc": lambda item: (
+                        "[bright_red]error[/bright_red]"
+                        if item.get("error")
+                        else "[bright_green]success[/bright_green]"
+                        if item.get("done")
+                        else "running"
+                    )
+                    + f"\ncreate: {item.get('metadata.createTime') or DEFAULT_VALUE}\nupdate: {item.get('metadata.updateTime') or DEFAULT_VALUE}",
+                },
+                "Response": {
+                    "path": ["done", "error", "response"],
+                    "opts": {"overflow": "fold"},
+                    "proc": lambda item: (
+                        f"code:{item['error'].get('code')}\nmessage:{item['error'].get('message')}"
+                        if item.get("error")
+                        else ("" if item.get("response") else DEFAULT_VALUE)
+                    )
+                    if item.get("done")
+                    else DEFAULT_VALUE,
+                },
+            },
+        )
+    )
 
 
 @app.command()
