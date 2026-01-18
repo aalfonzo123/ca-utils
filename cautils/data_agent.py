@@ -332,47 +332,37 @@ def upload(
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
 
-def print_agent_list(data, format_raw: bool):
-    if format_raw:
-        print(json.dumps(data, indent=2))
-        return
-
-    table = Table(box=box.SQUARE, show_lines=True)
-    table.add_column("Name", style="bright_green")
-    table.add_column("Display Name")
-    table.add_column("Description", overflow="fold")
-    table.add_column("System Instruction", overflow="fold")
-    table.add_column("Data Source", overflow="fold")
-
-    for item in data.get("dataAgents", []):
-        name = item["name"].split("/")[-1]
-        display_name = item.get("displayName", "N.A")
-        description = item.get("description", "N.A")
-        da = item.get("dataAnalyticsAgent", {})
-        pc = da.get("publishedContext", {})
-        system_instruction = pc.get("systemInstruction", "N.A")[:80]
-        dsr = pc.get("datasourceReferences", {})
-        bq = dsr.get("bq", {})
-        bq_tables = ",".join(
-            [
-                f"{t['datasetId']}.{t.get('tableId', '*')}"
-                for t in bq.get("tableReferences", [])
-            ]
+def print_agent_list(data):
+    app.console.print(
+        get_table_generic(
+            data.get("dataAgents", []),
+            {
+                "Name": {
+                    "opts": {"style": "bright_green"},
+                    "path": "name",
+                    "proc": after_last_slash,
+                },
+                "Display Name": "displayName",
+                "Description": "description",
+                "System Instruction": {
+                    "path": "dataAnalyticsAgent.publishedContext.systemInstruction",
+                    "proc": lambda x: x[:80] if x else DEFAULT_VALUE,
+                },
+                "Data Source": {
+                    "path": "dataAnalyticsAgent.publishedContext.datasourceReferences",
+                    "proc": lambda dsr: (
+                        f"bq: {','.join([f'{t["datasetId"]}.{t.get("tableId", "*")}' for t in dsr['bq']['tableReferences']])} "
+                        if dsr.get("bq")
+                        else "looker studio"
+                        if dsr.get("studio")
+                        else "looker"
+                        if dsr.get("looker")
+                        else "?"
+                    ),
+                },
+            },
         )
-
-        if bq:
-            data_source = f"bq: {bq_tables} "
-        elif dsr.get("studio"):
-            data_source = "looker studio"
-        elif dsr.get("looker"):
-            data_source = "looker"
-        else:
-            data_source = "?"
-
-        table.add_row(name, display_name, description, system_instruction, data_source)
-
-    console = Console(highlight=False)
-    console.print(table)
+    )
 
 
 @app.command
@@ -387,7 +377,8 @@ def list(project_id: str, location: str, format_raw: bool = False):
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     paginate(
         lambda params: helper.get("dataAgents", params),
-        lambda data: print_agent_list(data, format_raw),
+        lambda data: print_agent_list(data),
+        format_raw,
     )
 
 
@@ -412,7 +403,7 @@ def print_conversation_list(data):
 
 
 @app.command
-def list_conversation(project_id: str, location: str):
+def list_conversation(project_id: str, location: str, format_raw: bool = False):
     """Lists conversations in the specified project and location.
 
     Args:
@@ -423,6 +414,7 @@ def list_conversation(project_id: str, location: str):
     paginate(
         lambda params: helper.get("conversations", params),
         lambda data: print_conversation_list(data),
+        format_raw,
     )
 
 

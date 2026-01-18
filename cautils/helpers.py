@@ -4,6 +4,7 @@ from rich.prompt import Prompt
 from typing import Callable
 from requests.exceptions import HTTPError
 from rich import print as rprint
+import json
 
 
 class GeminiDataAnalyticsRequestHelper(GoogleRequestHelper):
@@ -12,12 +13,15 @@ class GeminiDataAnalyticsRequestHelper(GoogleRequestHelper):
         super().__init__(project_id, self.base_url)
 
 
-def paginate(retriever: Callable, printer: Callable):
+def paginate(retriever: Callable, printer: Callable, format_raw: bool = False):
     page_size = 5
     data = retriever({"pageSize": page_size})
     try:
         while True:
-            printer(data)
+            if format_raw:
+                print(json.dumps(data, indent=2))
+            else:
+                printer(data)
             if next_page_token := data.get("nextPageToken"):
                 show_next = Prompt.ask(
                     "show next page?", choices=["y", "n"], default="n"
