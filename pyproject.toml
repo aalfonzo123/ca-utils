@@ -1,6 +1,6 @@
 [project]
 name = "ca-utils"
-version = "0.3.7"
+version = "0.3.8"
 description = "CLI utitities to manage conversational analytics resources"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -17,6 +17,10 @@ dependencies = [
     "toolbox-core>=0.5.2",
 ]
 
+[build-system]
+requires = ["build>=1.2.1", "setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools]
 packages = ["cautils"]
 
@@ -25,3 +29,4 @@ cautils = ["schemaRelationships_schema.json", "exampleQueries_schema.json", "ini
 
 [project.scripts]
 ca-utils = "cautils:main.app"
+
