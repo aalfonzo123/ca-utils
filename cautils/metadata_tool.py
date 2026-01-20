@@ -261,7 +261,7 @@ def check_schema_relationships_columns(
     Checks if all columns mentioned in schemaRelationships.yaml exist in datasourceReferences.yaml.
 
     Returns:
-        A tuple: (True if all columns exist, list of missing columns).
+        A list of missing columns.
     """
     with open(schema_relationships_path, "r") as file:
         schema_relationships = yaml.safe_load(file)
