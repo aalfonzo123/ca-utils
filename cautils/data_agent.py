@@ -4,10 +4,7 @@ from pathlib import Path
 import yaml
 from cyclopts import App
 from requests.exceptions import HTTPError
-from rich import box
 from rich import print as rprint
-from rich.console import Console
-from rich.table import Table
 from rich.prompt import Prompt
 from typing import Callable
 
@@ -365,8 +362,8 @@ def print_agent_list(data):
     )
 
 
-@app.command
-def list(project_id: str, location: str, format_raw: bool = False):
+@app.command(name="list")
+def list_agents(project_id: str, location: str, format_raw: bool = False):
     """Lists data agents in the specified project and location.
 
     Args:
@@ -499,3 +496,61 @@ def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
         rprint(json.dumps(response, indent=2))
     except HTTPError as e:
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
+
+
+@app.command
+def sanity_check(
+    project_id: str,
+    location: str,
+    check_examplequeries_dry_run: bool = True,
+    check_schemarelationship_cols: bool = True,
+):
+    """Performs sanity checks on data agent configuration files.
+
+    This command validates the integrity and correctness of various data agent
+    configuration files, such as example queries and schema relationships.
+
+    Args:
+        project_id: The Google Cloud project ID for BigQuery operations.
+        location: The Google Cloud location (currently not directly used in checks).
+        check_examplequeries_dry_run: If True, performs a dry run on SQL queries
+                                      defined in `exampleQueries.yaml` to check for syntax errors.
+        check_schemarelationship_cols: If True, verifies that all columns referenced
+                                       in `schemaRelationships.yaml` exist in
+                                       `datasourceReferences.yaml`.
+
+    Raises:
+        ValueError: If required files (e.g., `exampleQueries.yaml`,
+                    `schemaRelationships.yaml`, `datasourceReferences.yaml`) are
+                    not found, or if schema relationship checks fail due to
+                    missing columns.
+        Exception: For any other errors encountered during the checks.
+    """
+    try:
+        from . import metadata_tool as mt
+
+        if check_examplequeries_dry_run:
+            print("Checking example queries using dry run")
+            with open("exampleQueries.yaml", "r") as file:
+                exampleQueries = yaml.safe_load(file)
+            mt.dry_run_sql(project_id, [e["sqlQuery"] for e in exampleQueries])
+        if check_schemarelationship_cols:
+            print("Checking schema relationship columns")
+            schema_relationships_path = Path("schemaRelationships.yaml")
+            datasource_references_path = Path("datasourceReferences.yaml")
+            if not schema_relationships_path.exists():
+                raise ValueError(f"{schema_relationships_path} not found.")
+            if not datasource_references_path.exists():
+                raise ValueError(f"{datasource_references_path} not found.")
+
+            missing_cols = mt.check_schema_relationships_columns(
+                schema_relationships_path, datasource_references_path
+            )
+            if missing_cols:
+                raise ValueError(
+                    f"Missing columns in datasource references: {missing_cols}"
+                )
+
+        rprint("[green]Checks succeeded[/green]")
+    except Exception as e:
+        rprint(f"[bright_red]{e}[/bright_red]")

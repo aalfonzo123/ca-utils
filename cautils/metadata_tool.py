@@ -1,7 +1,10 @@
 # based on https://github.com/google/adk-python/blob/main/src/google/adk/tools/bigquery/metadata_tool.py
 import json
+from pathlib import Path
 from google.cloud import bigquery
 from typing import List
+
+import yaml
 
 
 def list_dataset_ids(project_id: str) -> list[str]:
@@ -206,6 +209,85 @@ def get_sample_rows_json(project_id: str, dataset_id: str, table_id: str) -> str
 def split_using_dots(input: str) -> list[str]:
     """splits a string having dots into individual strings"""
     return input.split(".")
+
+
+def dry_run_sql(project_id: str, queries: list[str]):
+    client = bigquery.Client(project=project_id)
+
+    job_config = bigquery.QueryJobConfig(dry_run=True)  # , use_query_cache=False)
+
+    for query in queries:
+        print(f"  dry run of '{query}'")
+        client.query(query, job_config=job_config)
+
+
+def _get_column_fqns_from_datasource_references(
+    datasource_references_path: Path,
+) -> set[str]:
+    """Extracts fully qualified column names from datasourceReferences.yaml."""
+    with open(datasource_references_path, "r") as file:
+        data = yaml.safe_load(file)
+
+    column_fqns = set()
+    if not data or "bq" not in data or "tableReferences" not in data["bq"]:
+        return column_fqns
+
+    for table_ref in data["bq"]["tableReferences"]:
+        project_id = table_ref["projectId"]
+        dataset_id = table_ref["datasetId"]
+        table_id = table_ref["tableId"]
+        table_fqn_prefix = f"bigquery.googleapis.com/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}"
+
+        if "schema" in table_ref and "fields" in table_ref["schema"]:
+
+            def _extract_fields(fields: list[dict], current_path: list[str]):
+                for field in fields:
+                    field_name = field["name"]
+                    full_field_path = current_path + [field_name]
+                    column_name_part = ".".join(full_field_path)
+                    column_fqns.add(f"{table_fqn_prefix}:{column_name_part}")
+
+                    if field.get("type") == "RECORD" and "subfields" in field:
+                        _extract_fields(field["subfields"], full_field_path)
+
+            _extract_fields(table_ref["schema"]["fields"], [])
+    return column_fqns
+
+
+def check_schema_relationships_columns(
+    schema_relationships_path: Path, datasource_references_path: Path
+) -> list[str]:
+    """
+    Checks if all columns mentioned in schemaRelationships.yaml exist in datasourceReferences.yaml.
+
+    Returns:
+        A tuple: (True if all columns exist, list of missing columns).
+    """
+    with open(schema_relationships_path, "r") as file:
+        schema_relationships = yaml.safe_load(file)
+
+    if not schema_relationships:
+        return []
+
+    existing_columns = _get_column_fqns_from_datasource_references(
+        datasource_references_path
+    )
+
+    missing_columns = []
+    for relationship in schema_relationships:
+
+        def _check_paths(schema_paths_key: str):
+            if schema_paths_key in relationship:
+                table_fqn = relationship[schema_paths_key]["tableFqn"]
+                column_name_part = ".".join(relationship[schema_paths_key]["paths"])
+                column_fqn = f"{table_fqn}:{column_name_part}"
+                if column_fqn not in existing_columns:
+                    missing_columns.append(column_fqn)
+
+        _check_paths("leftSchemaPaths")
+        _check_paths("rightSchemaPaths")
+
+    return missing_columns
 
 
 if __name__ == "__main__":
