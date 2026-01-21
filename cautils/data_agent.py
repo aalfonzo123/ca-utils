@@ -286,6 +286,7 @@ def upload(
     ca_agent_id = Path().resolve().name
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     publishedContext = {}
+    # TODO: reconsider having systemInstruction as yaml, causes issues with colon ":"
     for element in DATA_AGENT_ELEMENTS:
         path = Path(f"{element}.yaml")
         if path.exists():
@@ -433,7 +434,7 @@ def delete_conversation(project_id: str, location: str, conversation_id: str):
 
 
 @app.command
-def download(project_id: str, location: str, dry_run: bool = False):
+def download(project_id: str, location: str, dry_run: bool = False, ask: bool = True):
     """Downloads a data agent to the local filesystem.
 
     The name of the agent is inferred from the name of the current directory.
@@ -449,7 +450,6 @@ def download(project_id: str, location: str, dry_run: bool = False):
     try:
         response = helper.get(f"dataAgents/{ca_agent_id}")
         # print(json.dumps(response, indent=2))
-        ask = True
         for element in DATA_AGENT_ELEMENTS:
             content = response["dataAnalyticsAgent"]["publishedContext"].get(element)
             if not content:
