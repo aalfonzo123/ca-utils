@@ -216,6 +216,7 @@ def autogen(
         gen_example_queries: Whether to generate example queries.
     """
     try:
+        # TODO: add warning if some columns are missing descriptions
         data_source_references_path = Path("datasourceReferences.yaml")
         ask = True
         if gen_data_source_references:
@@ -552,5 +553,39 @@ def sanity_check(
                 )
 
         rprint("[green]Checks succeeded[/green]")
+    except Exception as e:
+        rprint(f"[bright_red]{e}[/bright_red]")
+
+
+@app.command
+def introspect_autogen(
+    project_id: str,  # pyright: ignore [reportUnusedVariable]
+    location: str,
+    ask: bool = True,
+):
+    """Generates the autogen.yaml file from the datasourceReferences.yaml file,
+    which is the opposite of the normal workflow.
+
+    This is only useful if the original autogen.yaml is unavailable (i.e. it was not stored
+        in source control), but the datasourceReferences.yaml is available
+        (i.e. it was retrieved from GCP using download).
+
+    Note that the instrospected file never has wildcard lines (i.e. prj.ds.*)
+        so it can be different to the original autogen.yaml
+
+    Args:
+        project_id: The Google Cloud project ID. Unused, only here for consistency.
+        location: The Google Cloud location. Unused, only here for consistency.
+        ask: Whether to ask when overwriting files or not.
+    """
+    try:
+        from . import metadata_tool as mt
+
+        table_extracts = mt.introspect_autogen(Path("datasourceReferences.yaml"))
+        ask = _yaml_dump_after_confirm(
+            lambda: {"bqDataSources": table_extracts},
+            Path("autogen.yaml"),
+            ask,
+        )
     except Exception as e:
         rprint(f"[bright_red]{e}[/bright_red]")

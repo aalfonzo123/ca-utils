@@ -221,6 +221,25 @@ def dry_run_sql(project_id: str, queries: list[str]):
         client.query(query, job_config=job_config)
 
 
+def introspect_autogen(
+    datasource_references_path: Path,
+) -> list[str]:
+    if not datasource_references_path.exists():
+        raise ValueError(f"{datasource_references_path} not found.")
+    with open(datasource_references_path, "r") as file:
+        data = yaml.safe_load(file)
+
+    if not data or "bq" not in data or "tableReferences" not in data["bq"]:
+        raise ValueError(
+            "missing bq.tableReferences in file {datasource_references_path}"
+        )
+
+    return [
+        f"{r['projectId']}.{r['datasetId']}.{r['tableId']}"
+        for r in data["bq"]["tableReferences"]
+    ]
+
+
 def _get_column_fqns_from_datasource_references(
     datasource_references_path: Path,
 ) -> set[str]:

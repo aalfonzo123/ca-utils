@@ -1,0 +1,40 @@
+bq:
+  tableReferences:
+  - datasetId: alf_test
+    projectId: as-alf-argolis
+    schema:
+      fields:
+      - description: Unique numerical identifier for the chain.
+        mode: NULLABLE
+        name: id
+        type: NUMERIC
+      - description: Name of the chain.
+        maxLength: '30'
+        mode: NULLABLE
+        name: name
+        type: STRING
+    tableId: chain
+  - datasetId: alf_test
+    projectId: as-alf-argolis
+    schema:
+      fields:
+      - description: A nested record containing information about the chain the store
+          belongs to.
+        mode: NULLABLE
+        name: chain_info
+        subfields:
+        - description: The unique identifier of the chain associated with the store.
+          mode: NULLABLE
+          name: chain_id
+          type: INTEGER
+        type: RECORD
+      - description: The unique identifier for the store.
+        mode: NULLABLE
+        name: id
+        type: INTEGER
+      - description: The name of the store.
+        maxLength: '30'
+        mode: NULLABLE
+        name: name
+        type: STRING
+    tableId: store
