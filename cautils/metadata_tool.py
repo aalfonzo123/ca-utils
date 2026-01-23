@@ -1,10 +1,19 @@
 # based on https://github.com/google/adk-python/blob/main/src/google/adk/tools/bigquery/metadata_tool.py
 import json
 from pathlib import Path
+from google.api_core.exceptions import BadRequest
 from google.cloud import bigquery
 from typing import List
 
 import yaml
+
+
+class MultiErrorException(Exception):
+    """Custom exception to hold a list of errors"""
+
+    def __init__(self, message, errors: list[str]):
+        self.errors = errors
+        super().__init__(message)
 
 
 def list_dataset_ids(project_id: str) -> list[str]:
@@ -216,9 +225,17 @@ def dry_run_sql(project_id: str, queries: list[str]):
 
     job_config = bigquery.QueryJobConfig(dry_run=True)  # , use_query_cache=False)
 
+    errors = []
     for query in queries:
         print(f"  dry run of '{query}'")
-        client.query(query, job_config=job_config)
+        try:
+            client.query(query, job_config=job_config)
+        except BadRequest as e:
+            for err in e.errors:
+                errors.append(f"Error found in query '{query}': {err['message']}")
+
+    if errors:
+        raise MultiErrorException("Query errors found", errors)
 
 
 def introspect_autogen(

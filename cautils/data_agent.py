@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from google.api_core.exceptions import BadRequest
 import yaml
 from cyclopts import App
 from requests.exceptions import HTTPError
@@ -9,6 +10,8 @@ from rich.prompt import Prompt
 from typing import Callable
 
 from importlib.resources import files
+
+from cautils.metadata_tool import MultiErrorException
 
 
 from .helpers import GeminiDataAnalyticsRequestHelper, paginate
@@ -198,6 +201,68 @@ def init():
         rprint(f"[bright_red]{e}[/bright_red]")
 
 
+def autogen_internal(
+    project_id: str,
+    location: str,
+    gen_data_source_references: bool = True,
+    gen_schema_relationships: bool = True,
+    gen_example_queries: bool = True,
+    ask: bool = True,
+):
+    """Actual implementation of autogen, in
+    a way that can be called by the command or other functions.
+    """
+    # TODO: add warning if some columns are missing descriptions
+    data_source_references_path = Path("datasourceReferences.yaml")
+    if gen_data_source_references:
+        from . import metadata_tool as mt
+
+        with open("autogen.yaml", "r") as file:
+            autogen = yaml.safe_load(file)
+
+        if not autogen or "bqDataSources" not in autogen:
+            raise ValueError("autogen.yaml must specify bqDataSources")
+        table_extracts = []
+        for named_table in autogen["bqDataSources"]:
+            parts = named_table.strip().split(".")
+            print(f"exporting {named_table}")
+            if parts[2] == "*":
+                for table_meta in mt.get_tables_metadata(parts[0], parts[1]):
+                    table_extracts.append(mt.export_table(table_meta))
+            else:
+                table_meta = mt.get_table_metadata(parts[0], parts[1], parts[2])
+                table_extracts.append(mt.export_table(table_meta))
+
+        ask = _yaml_dump_after_confirm(
+            lambda: {"bq": {"tableReferences": table_extracts}},
+            data_source_references_path,
+            ask,
+        )
+
+    if not data_source_references_path.exists():
+        raise FileNotFoundError(
+            f"Cannot generate content if {data_source_references_path} does not exist"
+        )
+
+    if gen_example_queries:
+        ask = _yaml_dump_after_confirm(
+            lambda: _gen_example_queries(
+                project_id, location, data_source_references_path
+            ),
+            Path("exampleQueries.yaml"),
+            ask,
+        )
+
+    if gen_schema_relationships:
+        ask = _yaml_dump_after_confirm(
+            lambda: _gen_schema_relationships(
+                project_id, location, data_source_references_path
+            ),
+            Path("schemaRelationships.yaml"),
+            ask,
+        )
+
+
 @app.command
 def autogen(
     project_id: str,
@@ -205,6 +270,7 @@ def autogen(
     gen_data_source_references: bool = True,
     gen_schema_relationships: bool = True,
     gen_example_queries: bool = True,
+    ask: bool = True,
 ):
     """Auto generates data agent files based on specification.
 
@@ -216,56 +282,14 @@ def autogen(
         gen_example_queries: Whether to generate example queries.
     """
     try:
-        # TODO: add warning if some columns are missing descriptions
-        data_source_references_path = Path("datasourceReferences.yaml")
-        ask = True
-        if gen_data_source_references:
-            from . import metadata_tool as mt
-
-            with open("autogen.yaml", "r") as file:
-                autogen = yaml.safe_load(file)
-
-            if not autogen or "bqDataSources" not in autogen:
-                raise ValueError("autogen.yaml must specify bqDataSources")
-            table_extracts = []
-            for named_table in autogen["bqDataSources"]:
-                parts = named_table.strip().split(".")
-                print(f"exporting {named_table}")
-                if parts[2] == "*":
-                    for table_meta in mt.get_tables_metadata(parts[0], parts[1]):
-                        table_extracts.append(mt.export_table(table_meta))
-                else:
-                    table_meta = mt.get_table_metadata(parts[0], parts[1], parts[2])
-                    table_extracts.append(mt.export_table(table_meta))
-
-            ask = _yaml_dump_after_confirm(
-                lambda: {"bq": {"tableReferences": table_extracts}},
-                data_source_references_path,
-                ask,
-            )
-
-        if not data_source_references_path.exists():
-            raise FileNotFoundError(
-                f"Cannot generate content if {data_source_references_path} does not exist"
-            )
-
-        if gen_example_queries:
-            ask = _yaml_dump_after_confirm(
-                lambda: _gen_example_queries(
-                    project_id, location, data_source_references_path
-                ),
-                Path("exampleQueries.yaml"),
-                ask,
-            )
-
-        if gen_schema_relationships:
-            ask = _yaml_dump_after_confirm(
-                lambda: _gen_schema_relationships(
-                    project_id, location, data_source_references_path
-                ),
-                Path("schemaRelationships.yaml"),
-                ask,
-            )
+        autogen_internal(
+            project_id,
+            location,
+            gen_data_source_references,
+            gen_schema_relationships,
+            gen_example_queries,
+            ask,
+        )
         rprint("[green]Files auto generated[/green]")
     except (FileExistsError, OSError, ValueError) as e:
         rprint(f"[bright_red]{e}[/bright_red]")
@@ -499,6 +523,46 @@ def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
 
+def sanity_check_internal(
+    project_id: str,
+    location: str,
+    check_examplequeries_dry_run: bool = True,
+    check_schemarelationship_cols: bool = True,
+):
+    """Actual implementation of sanity_check, in
+    a way that can be called by the command or other functions.
+    """
+    from . import metadata_tool as mt
+
+    errors = []
+    if check_examplequeries_dry_run:
+        print("Checking example queries using dry run")
+        with open("exampleQueries.yaml", "r") as file:
+            exampleQueries = yaml.safe_load(file)
+        try:
+            mt.dry_run_sql(project_id, [e["sqlQuery"] for e in exampleQueries])
+        except MultiErrorException as e:
+            errors.extend(e.errors)
+    if check_schemarelationship_cols:
+        print("Checking schema relationship columns")
+        schema_relationships_path = Path("schemaRelationships.yaml")
+        datasource_references_path = Path("datasourceReferences.yaml")
+        if not schema_relationships_path.exists():
+            raise FileNotFoundError(f"{schema_relationships_path} not found.")
+        if not datasource_references_path.exists():
+            raise FileNotFoundError(f"{datasource_references_path} not found.")
+
+        missing_cols = mt.check_schema_relationships_columns(
+            schema_relationships_path, datasource_references_path
+        )
+        if missing_cols:
+            errors.append(
+                f"schemaRelationships.yaml mentions these columns that don't exist in datasourceReferences.yaml: {missing_cols}"
+            )
+    if errors:
+        raise MultiErrorException("Sanity check errors found", errors)
+
+
 @app.command
 def sanity_check(
     project_id: str,
@@ -528,33 +592,38 @@ def sanity_check(
         Exception: For any other errors encountered during the checks.
     """
     try:
-        from . import metadata_tool as mt
-
-        if check_examplequeries_dry_run:
-            print("Checking example queries using dry run")
-            with open("exampleQueries.yaml", "r") as file:
-                exampleQueries = yaml.safe_load(file)
-            mt.dry_run_sql(project_id, [e["sqlQuery"] for e in exampleQueries])
-        if check_schemarelationship_cols:
-            print("Checking schema relationship columns")
-            schema_relationships_path = Path("schemaRelationships.yaml")
-            datasource_references_path = Path("datasourceReferences.yaml")
-            if not schema_relationships_path.exists():
-                raise ValueError(f"{schema_relationships_path} not found.")
-            if not datasource_references_path.exists():
-                raise ValueError(f"{datasource_references_path} not found.")
-
-            missing_cols = mt.check_schema_relationships_columns(
-                schema_relationships_path, datasource_references_path
-            )
-            if missing_cols:
-                raise ValueError(
-                    f"Missing columns in datasource references: {missing_cols}"
-                )
-
+        sanity_check_internal(
+            project_id,
+            location,
+            check_examplequeries_dry_run,
+            check_schemarelationship_cols,
+        )
         rprint("[green]Checks succeeded[/green]")
+    except MultiErrorException as e:
+        rprint(
+            f"[bright_red]Validation errors found:\n{'\n'.join(e.errors)}[/bright_red]"
+        )
     except Exception as e:
         rprint(f"[bright_red]{e}[/bright_red]")
+
+
+def introspect_autogen_internal(
+    project_id: str,  # pyright: ignore [reportUnusedVariable]
+    location: str,
+    ask: bool = True,
+):
+    """Actual implementation of introspect_autogen, in
+    a way that can be called by the command or other functions.
+    """
+    from . import metadata_tool as mt
+
+    print("Introspecting autogen")
+    table_extracts = mt.introspect_autogen(Path("datasourceReferences.yaml"))
+    ask = _yaml_dump_after_confirm(
+        lambda: {"bqDataSources": table_extracts},
+        Path("autogen.yaml"),
+        ask,
+    )
 
 
 @app.command
@@ -579,13 +648,7 @@ def introspect_autogen(
         ask: Whether to ask when overwriting files or not.
     """
     try:
-        from . import metadata_tool as mt
-
-        table_extracts = mt.introspect_autogen(Path("datasourceReferences.yaml"))
-        ask = _yaml_dump_after_confirm(
-            lambda: {"bqDataSources": table_extracts},
-            Path("autogen.yaml"),
-            ask,
-        )
+        introspect_autogen_internal(project_id, location, ask)
+        rprint("[green]Introspect autogen succeeded[/green]")
     except Exception as e:
         rprint(f"[bright_red]{e}[/bright_red]")
