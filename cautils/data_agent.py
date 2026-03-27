@@ -122,7 +122,7 @@ def _gen_example_queries(
 
     genai_client = genai.Client(vertexai=True, project=project_id, location=location)
     response = genai_client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=history,
         config=GenerateContentConfig(
             system_instruction="Your goal is to create one sample natural language query and its corresponding SQL statement\n"
@@ -167,7 +167,7 @@ def _gen_schema_relationships(
 
     genai_client = genai.Client(vertexai=True, project=project_id, location=location)
     response = genai_client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=history,
         config=GenerateContentConfig(
             system_instruction="Your goal is to infer foreign key relationships between tables in a database schema\n"
