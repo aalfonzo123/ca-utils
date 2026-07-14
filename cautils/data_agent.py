@@ -361,7 +361,7 @@ def print_agent_list(data):
             data.get("dataAgents", []),
             {
                 "Name": {
-                    "opts": {"style": "bright_green"},
+                    "opts": {"style": "bright_green", "overflow": "fold"},
                     "path": "name",
                     "proc": after_last_slash,
                 },
@@ -374,7 +374,7 @@ def print_agent_list(data):
                 "Data Source": {
                     "path": "dataAnalyticsAgent.publishedContext.datasourceReferences",
                     "proc": lambda dsr: (
-                        f"bq: {','.join([f'{t["datasetId"]}.{t.get("tableId", "*")}' for t in dsr['bq']['tableReferences']])} "
+                        f"bq: {','.join([f'{t["datasetId"]}.{t.get("tableId", "*")}' for t in dsr['bq'].get('tableReferences', [])])} "
                         if dsr.get("bq")
                         else "looker studio"
                         if dsr.get("studio")
@@ -418,7 +418,9 @@ def print_conversation_list(data):
                 "Agents": {"path": "agents", "proc": after_last_slash_multi},
                 "Dates": {
                     "path": ["createTime", "lastUsedTime"],
-                    "proc": lambda values: f"created:{values['createTime']}\nlast updated:{values['lastUsedTime']}",
+                    "proc": lambda values: (
+                        f"created:{values['createTime']}\nlast updated:{values['lastUsedTime']}"
+                    ),
                 },
             },
         )
@@ -441,6 +443,7 @@ def list_conversation(project_id: str, location: str, format_raw: bool = False):
     )
 
 
+# TODO: add prune conversations
 @app.command
 def delete_conversation(project_id: str, location: str, conversation_id: str):
     """Deletes a specific conversation by ID.
@@ -500,14 +503,21 @@ def download(project_id: str, location: str, dry_run: bool = False, ask: bool = 
 
 
 @app.command
-def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
-    """Initiates a chat with a specified data agent.
+def chat(
+    project_id: str,
+    location: str,
+    ca_agent_id: str,
+    prompt: str,
+    forced_token: str | None = None,
+):
+    """Initiates a chat with a specified data agent. Note: this does not use streaming, so it will seem very slow.
 
     Args:
         project_id: The Google Cloud project ID.
         location: The Google Cloud location.
         ca_agent_id: The ID of the data agent to chat with.
         prompt: The user's prompt.
+        forced_token: Token to use for authentication, if not specified, adc is used.
     """
     helper = GeminiDataAnalyticsRequestHelper(project_id, location)
     payload = {
@@ -516,6 +526,9 @@ def chat(project_id: str, location: str, ca_agent_id: str, prompt: str):
             "dataAgent": f"projects/{project_id}/locations/{location}/dataAgents/{ca_agent_id}"
         },
     }
+    if forced_token:
+        payload["credentials"] = {"oauth": {"token": {"accessToken": forced_token}}}
+
     try:
         response = helper.post(":chat", payload)
         rprint(json.dumps(response, indent=2))
