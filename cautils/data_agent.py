@@ -461,6 +461,83 @@ def delete_conversation(project_id: str, location: str, conversation_id: str):
         rprint(f"[bright_red]{e.response.text}[/bright_red]")
 
 
+def print_message_list(data):
+    def get_text(m):
+        msg = m.get("message", {})
+        if "userMessage" in msg:
+            return msg["userMessage"].get("text", DEFAULT_VALUE)
+        if "agentMessage" in msg:
+            return msg["agentMessage"].get("text", DEFAULT_VALUE)
+        if "systemMessage" in msg:
+            sys_msg = msg["systemMessage"]
+            if "text" in sys_msg:
+                text_type = sys_msg["text"].get("textType", "UNKNOWN_TEXT_TYPE")
+                return f"Type: {text_type}\n" + "\n".join(sys_msg["text"].get("parts", []))
+            if "data" in sys_msg:
+                data_node = sys_msg["data"]
+                if "generatedSql" in data_node:
+                    return f"Type: generatedSql\nSQL: {data_node['generatedSql']}"
+                if "result" in data_node:
+                    return f"Type: result\nData Result: {len(data_node['result'].get('data', []))} rows"
+                if "bigQueryJob" in data_node:
+                    return f"Type: bigQueryJob\nBQ Job: {data_node['bigQueryJob'].get('jobId')}"
+                if "clarificationResponse" in data_node:
+                    return f"Type: clarificationResponse\nClarification: {data_node['clarificationResponse']}"
+                if "executionError" in data_node:
+                    return f"Type: executionError\nError: {data_node['executionError']}"
+        return DEFAULT_VALUE
+
+    def get_role(m):
+        msg = m.get("message", {})
+        if "userMessage" in msg:
+            return "User"
+        if "agentMessage" in msg:
+            return "Agent"
+        if "systemMessage" in msg:
+            return "System"
+        return "Unknown"
+
+    app.console.print(
+        get_table_generic(
+            data.get("messages"),
+            {
+                "Name": {
+                    "opts": {"style": "bright_green"},
+                    "path": "messageId",
+                },
+                "Role": {
+                    "path": "",
+                    "proc": get_role,
+                },
+                "Text": {
+                    "path": "",
+                    "proc": get_text,
+                },
+            },
+        )
+    )
+
+
+@app.command
+def list_messages(
+    project_id: str, location: str, conversation_id: str, format_raw: bool = False
+):
+    """Lists messages in a specific conversation.
+
+    Args:
+        project_id: The Google Cloud project ID.
+        location: The Google Cloud location.
+        conversation_id: The ID of the conversation.
+        format_raw: Whether to print the raw JSON output.
+    """
+    helper = GeminiDataAnalyticsRequestHelper(project_id, location)
+    paginate(
+        lambda params: helper.get(f"conversations/{conversation_id}/messages", params),
+        lambda data: print_message_list(data),
+        format_raw,
+    )
+
+
 @app.command
 def download(project_id: str, location: str, dry_run: bool = False, ask: bool = True):
     """Downloads a data agent to the local filesystem.
