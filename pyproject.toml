@@ -5,16 +5,17 @@ description = "CLI utitities to manage conversational analytics resources"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "cyclopts>=4.2.3",
-    "google-adk>=1.28.0",
-    "google-auth>=2.43.0",
-    "google-cloud-bigquery>=3.38.0",
-    "google-genai>=1.50.1",
-    "pytest-asyncio>=1.3.0",
-    "pyyaml>=6.0.3",
-    "requests>=2.32.5",
-    "ruff>=0.14.5",
-    "toolbox-core>=0.5.2",
+  "cyclopts>=4.2.3",
+  "google-adk>=1.28.0",
+  "google-auth>=2.43.0",
+  "google-cloud-bigquery>=3.38.0",
+  "google-genai>=1.50.1",
+  "pytest-asyncio>=1.3.0",
+  "pyyaml>=6.0.3",
+  "requests>=2.32.5",
+  "ruff>=0.14.5",
+  "toolbox-core>=0.5.2",
+  "joserfc>=1.6.8",
 ]
 
 [build-system]
@@ -25,8 +26,11 @@ build-backend = "setuptools.build_meta"
 packages = ["cautils"]
 
 [tool.setuptools.package-data]
-cautils = ["schemaRelationships_schema.json", "exampleQueries_schema.json", "init_files/*"]
+cautils = [
+  "schemaRelationships_schema.json",
+  "exampleQueries_schema.json",
+  "init_files/*",
+]
 
 [project.scripts]
 ca-utils = "cautils:main.app"
-
